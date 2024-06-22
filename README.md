@@ -43,7 +43,7 @@ std::vector<std::filesystem::path> in_paths = {
 
 split::ifstream fin(in_paths);
 ```
-You can also use the `fin.push_pack()` method to append files to the end of the stream later if needed:
+You can also use the `fin.push_back()` method to append more files to the end of the stream if needed:
 ```cpp
 split::ifstream fin("file.1.bin");
 

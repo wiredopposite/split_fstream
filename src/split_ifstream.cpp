@@ -20,25 +20,25 @@ split::ifstream& split::ifstream::operator=(ifstream&& other) noexcept {
     return *this;
 }
 
-split::ifstream::ifstream(const std::vector<std::filesystem::path>& file_paths) {
-    infile.resize(file_paths.size());
-    for (size_t i = 0; i < file_paths.size(); i++) {
-        infile[i].path = file_paths[i];
+split::ifstream::ifstream(const std::vector<std::filesystem::path> &_Paths) {
+    infile.resize(_Paths.size());
+    for (size_t i = 0; i < _Paths.size(); i++) {
+        infile[i].path = _Paths[i];
     }
     init_streams();
 }
 
-split::ifstream::ifstream(const std::vector<std::string>& file_paths) {
-    infile.resize(file_paths.size());
-    for (size_t i = 0; i < file_paths.size(); i++) {
-        infile[i].path = std::filesystem::absolute(file_paths[i]);
+split::ifstream::ifstream(const std::vector<std::string> &_Paths) {
+    infile.resize(_Paths.size());
+    for (size_t i = 0; i < _Paths.size(); i++) {
+        infile[i].path = std::filesystem::absolute(_Paths[i]);
     }
     init_streams();
 }
 
-split::ifstream::ifstream(const std::filesystem::path& file_path) {
+split::ifstream::ifstream(const std::filesystem::path &_Path) {
     infile.resize(1);
-    infile[0].path = file_path;
+    infile[0].path = _Path;
     init_streams();
 }
 
@@ -46,42 +46,46 @@ split::ifstream::~ifstream() {
     close();
 }
 
-void split::ifstream::open(const std::vector<std::filesystem::path>& file_paths) {
+void split::ifstream::open(const std::vector<std::filesystem::path> &_Paths) {
     if (is_open()) {
         return;
     }
     close();
-    infile.resize(file_paths.size());
-    for (size_t i = 0; i < file_paths.size(); i++) {
-        infile[i].path = file_paths[i];
+    infile.resize(_Paths.size());
+    for (size_t i = 0; i < _Paths.size(); i++) {
+        infile[i].path = _Paths[i];
     }
     init_streams();
 }
 
-void split::ifstream::open(const std::vector<std::string>& file_paths) {
+void split::ifstream::open(const std::vector<std::string> &_Paths) {
     if (is_open()) {
         return;
     }
     close();
-    infile.resize(file_paths.size());
-    for (size_t i = 0; i < file_paths.size(); i++) {
-        infile[i].path = std::filesystem::absolute(file_paths[i]);
+    infile.resize(_Paths.size());
+    for (size_t i = 0; i < _Paths.size(); i++) {
+        infile[i].path = std::filesystem::absolute(_Paths[i]);
     }
     init_streams();
 }
 
-void split::ifstream::open(const std::filesystem::path& file_path) {
+void split::ifstream::open(const std::filesystem::path &_Path) {
     if (is_open()) {
         return;
     }
     close();
     infile.resize(1);
-    infile[0].path = file_path;
+    infile[0].path = _Path;
     init_streams();
 }
 
-void split::ifstream::push_back(const std::filesystem::path& file_path) {
-    StreamInfo new_stream_info = { std::ifstream(file_path, std::ios::binary), std::filesystem::file_size(file_path), std::filesystem::absolute(file_path) };
+void split::ifstream::push_back(const std::filesystem::path &_Path) {
+    StreamInfo new_stream_info = { 
+        std::ifstream(_Path, std::ios::binary), 
+        std::filesystem::file_size(_Path), 
+        std::filesystem::absolute(_Path) 
+    };
     infile.push_back(std::move(new_stream_info));
     total_size += infile.back().size;
     end_of_file = false;
@@ -99,22 +103,31 @@ void split::ifstream::init_streams() {
     }
 }
 
-void split::ifstream::seekg(std::streampos pos, std::ios_base::seekdir dir) {
-    switch (dir) {
+void split::ifstream::seekg(int64_t _Off, std::ios_base::seekdir _Way) {
+    int64_t new_position;
+    switch (_Way) {
         case std::ios_base::beg:
-            current_position = pos;
+            new_position = _Off;
             break;
         case std::ios_base::cur:
-            current_position += pos;
+            new_position = current_position + _Off;
             break;
         case std::ios_base::end:
-            current_position = total_size - pos;
+            new_position = total_size + _Off;
             break;
         default:
             throw std::invalid_argument("Invalid seek direction");
     }
 
-    std::streamsize bytes_left = current_position;
+    if (new_position < 0 || static_cast<uint64_t>(new_position) > total_size) {
+        for (auto& stream_info : infile) {
+            stream_info.stream.setstate(std::ios::failbit);
+        }
+        return;
+    }
+
+    current_position = new_position;
+    uint64_t bytes_left = static_cast<uint64_t>(current_position);
 
     if (bytes_left > total_size) {
         current_stream = static_cast<unsigned int>(infile.size() - 1);
@@ -133,8 +146,8 @@ void split::ifstream::seekg(std::streampos pos, std::ios_base::seekdir dir) {
     }
 }
 
-split::ifstream& split::ifstream::read(char* buffer, std::streamsize num_bytes) {
-    std::streamsize bytes_to_read = num_bytes;
+split::ifstream& split::ifstream::read(char* _Str, std::streamsize _Count) {
+    std::streamsize bytes_to_read = _Count;
     last_gcount = 0;
 
     while (bytes_to_read > 0) {
@@ -142,16 +155,16 @@ split::ifstream& split::ifstream::read(char* buffer, std::streamsize num_bytes) 
         
         if (bytes_left_in_stream >= bytes_to_read) {
             // The current stream has enough bytes to fulfill the read request
-            infile[current_stream].stream.read(buffer, bytes_to_read);
+            infile[current_stream].stream.read(_Str, bytes_to_read);
             last_gcount += infile[current_stream].stream.gcount();
             current_position += last_gcount;
             return *this;
         } else {
             // Current stream doesn't have enough bytes
-            infile[current_stream].stream.read(buffer, bytes_left_in_stream);
+            infile[current_stream].stream.read(_Str, bytes_left_in_stream);
             last_gcount += infile[current_stream].stream.gcount();
             current_position += bytes_left_in_stream;
-            buffer += bytes_left_in_stream;
+            _Str += bytes_left_in_stream;
             bytes_to_read -= bytes_left_in_stream;
             current_stream++;
 
@@ -166,7 +179,10 @@ split::ifstream& split::ifstream::read(char* buffer, std::streamsize num_bytes) 
     return *this;
 }
 
-std::streampos split::ifstream::tellg() {
+int64_t split::ifstream::tellg() {
+    if (fail()) {
+        return -1;
+    }
     return current_position;
 }
 

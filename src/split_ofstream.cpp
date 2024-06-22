@@ -28,7 +28,7 @@ split::ofstream& split::ofstream::operator=(ofstream&& other) noexcept {
     return *this;
 }
 
-split::ofstream::ofstream(const std::filesystem::path &_Path, const std::streamsize &_Maxsize)
+split::ofstream::ofstream(const std::filesystem::path &_Path, const uint64_t &_Maxsize)
     :   parent_path(_Path.parent_path()),
         file_stem(_Path.stem().string()), 
         file_ext(_Path.extension().string()),
@@ -41,7 +41,7 @@ split::ofstream::~ofstream() {
     clean_all();
 }
 
-void split::ofstream::open(const std::filesystem::path &_Path, const std::streamsize &_Maxsize) {
+void split::ofstream::open(const std::filesystem::path &_Path, const uint64_t &_Maxsize) {
     if (is_open()) {
         return;
     }
@@ -53,25 +53,34 @@ void split::ofstream::open(const std::filesystem::path &_Path, const std::stream
     open_new_stream();
 }
 
-split::ofstream& split::ofstream::seekp(std::streampos _Off, std::ios_base::seekdir _Way) {
+split::ofstream& split::ofstream::seekp(int64_t _Off, std::ios_base::seekdir _Way) {
+    outfile.back().stream.seekp(0, std::ios::end);
+    int64_t last_pos = (outfile.size() - 1) * max_filesize + outfile.back().stream.tellp();
+    int64_t new_pos = 0;
+
     switch (_Way) {
         case std::ios_base::beg:
-            current_position = _Off;
+            new_pos = _Off;
             break;
         case std::ios_base::cur:
-            current_position += _Off;
+            new_pos = current_position + _Off;
             break;
-        case std::ios_base::end: {
-            outfile.back().stream.seekp(0, std::ios::end);
-            std::streamsize last_pos = (outfile.size() - 1) * max_filesize + outfile.back().stream.tellp();
-            current_position = (_Off > 0) ? last_pos : (last_pos + _Off);
+        case std::ios_base::end:
+            new_pos = last_pos + _Off;
             break;
-        }
         default:
             throw std::invalid_argument("Invalid seek direction");
     }
 
-    std::streamsize bytes_left = current_position;
+    if (new_pos < 0 || new_pos > last_pos) {
+        for (auto& file : outfile) {
+            file.stream.setstate(std::ios::failbit);
+        }
+        return *this;
+    }
+
+    current_position = new_pos;
+    uint64_t bytes_left = static_cast<uint64_t>(current_position);
 
     for (current_stream = 0; current_stream < outfile.size(); ++current_stream) {
         if (bytes_left <= max_filesize) {
@@ -86,7 +95,7 @@ split::ofstream& split::ofstream::seekp(std::streampos _Off, std::ios_base::seek
 
 split::ofstream& split::ofstream::write(const char* _Str, std::streamsize _Count) {
     while (_Count > 0) {
-        std::streamsize bytes_left = max_filesize - outfile[current_stream].stream.tellp();
+        uint64_t bytes_left = max_filesize - outfile[current_stream].stream.tellp();
 
         if (bytes_left <= 0) {
             current_stream++;
@@ -96,7 +105,7 @@ split::ofstream& split::ofstream::write(const char* _Str, std::streamsize _Count
             continue;
         }
 
-        std::streamsize to_write = std::min(_Count, bytes_left);
+        std::streamsize to_write = std::min(static_cast<uint64_t>(_Count), bytes_left);
         outfile[current_stream].stream.write(_Str, to_write);
         _Str += to_write;
         _Count -= to_write;
@@ -105,7 +114,10 @@ split::ofstream& split::ofstream::write(const char* _Str, std::streamsize _Count
     return *this;
 }
 
-std::streampos split::ofstream::tellp() {
+int64_t split::ofstream::tellp() {
+    if (fail()) {
+        return -1;
+    }
     return current_position;
 }
 
