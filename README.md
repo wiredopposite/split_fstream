@@ -1,7 +1,7 @@
 # split_fstream
 This is still being tested, use at your own peril!
 
-An `std::ifstream`/`std::ofstream` wrapper meant for reading and writing split binary files as you would a normal file stream. This was created to more easily work with files on filesystems where size limits are an issue, but there are bound to be a few more cases where it could be useful. 
+An `std::ifstream`/`std::ofstream` wrapper meant for reading and writing split binary files as you would a normal file stream. This was created to more easily work with files on filesystems where size limits are an issue. 
 
 ## split::ofstream
 Construct with a filepath and a max size to split the files at. 
@@ -43,7 +43,7 @@ std::vector<std::filesystem::path> in_paths = {
 
 split::ifstream fin(in_paths);
 ```
-You can also use the `fin.push_pack()` operator to append files to the end of the stream later if needed:
+You can also use the `fin.push_pack()` method to append files to the end of the stream later if needed:
 ```cpp
 split::ifstream fin("file.1.bin");
 
