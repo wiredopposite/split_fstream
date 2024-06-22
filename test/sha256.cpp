@@ -194,11 +194,11 @@ std::string compute_sha256(const std::string& file_path) {
     SHA256 sha256;
     std::vector<uint8_t> buffer(8192);
     while (file.read(reinterpret_cast<char*>(buffer.data()), buffer.size())) {
-        sha256.update(buffer.data(), file.gcount());
+        sha256.update(buffer.data(), static_cast<size_t>(file.gcount()));
     }
     // For the remaining bytes (if any)
     if (file.gcount() > 0) {
-        sha256.update(buffer.data(), file.gcount());
+        sha256.update(buffer.data(), static_cast<size_t>(file.gcount()));
     }
 
     return sha256.final();
