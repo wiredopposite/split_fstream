@@ -30,9 +30,9 @@ public:
     bool operator!();
 
     void open(const std::filesystem::path &_Path, const uint64_t &_Maxsize = UINT64_MAX);
-    ofstream& seekp(int64_t _Off, std::ios_base::seekdir _Way = std::ios_base::beg);
+    ofstream& seekp(uint64_t _Off, std::ios_base::seekdir _Way);
     ofstream& write(const char* _Str, std::streamsize _Count);
-    int64_t tellp();
+    uint64_t tellp();
 
     bool is_open() const;
     bool fail() const;
@@ -57,7 +57,7 @@ private:
     std::filesystem::path parent_path;
 
     unsigned int current_stream{0};
-    int64_t current_position{0};
+    uint64_t current_position{0};
     uint64_t max_filesize;
     
     std::filesystem::path get_next_filepath();
@@ -85,19 +85,21 @@ public:
     void open(const std::filesystem::path &_Path);
 
     void push_back(const std::filesystem::path &_Path);
-    void close();
-    bool is_open() const;
-    int64_t tellg();
-    void seekg(int64_t _Off, std::ios_base::seekdir _Way = std::ios_base::cur);
-    ifstream& read(char* _Str, std::streamsize _Count);
-    std::streamsize gcount() const;
+    uint64_t size() const;
 
+    void close();
+    void clear();
+    uint64_t tellg();
+    uint64_t gcount() const;
+    void seekg(uint64_t _Off, std::ios_base::seekdir _Way);
+    ifstream& read(char* _Str, std::streamsize _Count);
+
+    bool is_open() const;
     bool eof() const;
     bool fail() const;
     bool bad() const;
     bool good() const;
-    void clear();
-
+    
 private:
     void init_streams();
 
@@ -110,8 +112,8 @@ private:
     std::vector<StreamInfo> infile;
     uint64_t total_size{0};
     unsigned int current_stream{0};
-    int64_t current_position{0};
-    std::streamsize last_gcount{0};
+    uint64_t current_position{0};
+    uint64_t last_gcount{0};
     bool end_of_file{false};
 };
 

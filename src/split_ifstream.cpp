@@ -91,6 +91,10 @@ void split::ifstream::push_back(const std::filesystem::path &_Path) {
     end_of_file = false;
 }
 
+uint64_t split::ifstream::size() const {
+    return total_size;
+}
+
 void split::ifstream::init_streams() {
     for (auto& file : infile) {
         file.stream.open(file.path, std::ios::binary);
@@ -103,8 +107,9 @@ void split::ifstream::init_streams() {
     }
 }
 
-void split::ifstream::seekg(int64_t _Off, std::ios_base::seekdir _Way) {
-    int64_t new_position;
+void split::ifstream::seekg(uint64_t _Off, std::ios_base::seekdir _Way) {
+    uint64_t new_position;
+
     switch (_Way) {
         case std::ios_base::beg:
             new_position = _Off;
@@ -119,17 +124,18 @@ void split::ifstream::seekg(int64_t _Off, std::ios_base::seekdir _Way) {
             throw std::invalid_argument("Invalid seek direction");
     }
 
-    if (new_position < 0 || static_cast<uint64_t>(new_position) > total_size) {
+    if (new_position > total_size) {
         for (auto& stream_info : infile) {
             stream_info.stream.setstate(std::ios::failbit);
         }
-        return;
+        current_position = total_size;
+    } else {
+        current_position = new_position;
     }
 
-    current_position = new_position;
-    uint64_t bytes_left = static_cast<uint64_t>(current_position);
+    uint64_t bytes_left = current_position;
 
-    if (bytes_left > total_size) {
+    if (bytes_left == total_size) {
         current_stream = static_cast<unsigned int>(infile.size() - 1);
         infile[current_stream].stream.seekg(0, std::ios_base::end);
         end_of_file = infile[current_stream].stream.eof();
@@ -147,11 +153,11 @@ void split::ifstream::seekg(int64_t _Off, std::ios_base::seekdir _Way) {
 }
 
 split::ifstream& split::ifstream::read(char* _Str, std::streamsize _Count) {
-    std::streamsize bytes_to_read = _Count;
+    uint64_t bytes_to_read = _Count;
     last_gcount = 0;
 
     while (bytes_to_read > 0) {
-        std::streamsize bytes_left_in_stream = infile[current_stream].size - infile[current_stream].stream.tellg();
+        uint64_t bytes_left_in_stream = infile[current_stream].size - infile[current_stream].stream.tellg();
         
         if (bytes_left_in_stream >= bytes_to_read) {
             // The current stream has enough bytes to fulfill the read request
@@ -179,14 +185,11 @@ split::ifstream& split::ifstream::read(char* _Str, std::streamsize _Count) {
     return *this;
 }
 
-int64_t split::ifstream::tellg() {
-    if (fail()) {
-        return -1;
-    }
+uint64_t split::ifstream::tellg() {
     return current_position;
 }
 
-std::streamsize split::ifstream::gcount() const {
+uint64_t split::ifstream::gcount() const {
     return last_gcount;
 }
 

@@ -53,10 +53,10 @@ void split::ofstream::open(const std::filesystem::path &_Path, const uint64_t &_
     open_new_stream();
 }
 
-split::ofstream& split::ofstream::seekp(int64_t _Off, std::ios_base::seekdir _Way) {
+split::ofstream& split::ofstream::seekp(uint64_t _Off, std::ios_base::seekdir _Way) {
     outfile.back().stream.seekp(0, std::ios::end);
-    int64_t last_pos = (outfile.size() - 1) * max_filesize + outfile.back().stream.tellp();
-    int64_t new_pos = 0;
+    uint64_t total_size = (outfile.size() - 1) * max_filesize + outfile.back().stream.tellp();
+    uint64_t new_pos = 0;
 
     switch (_Way) {
         case std::ios_base::beg:
@@ -66,25 +66,29 @@ split::ofstream& split::ofstream::seekp(int64_t _Off, std::ios_base::seekdir _Wa
             new_pos = current_position + _Off;
             break;
         case std::ios_base::end:
-            new_pos = last_pos + _Off;
+            new_pos = total_size + _Off;
             break;
         default:
             throw std::invalid_argument("Invalid seek direction");
     }
 
-    if (new_pos < 0 || new_pos > last_pos) {
+    if (new_pos > total_size) {
         for (auto& file : outfile) {
             file.stream.setstate(std::ios::failbit);
         }
-        return *this;
+        current_position = total_size;
+    } else {
+        current_position = new_pos;
     }
 
-    current_position = new_pos;
-    uint64_t bytes_left = static_cast<uint64_t>(current_position);
+    uint64_t bytes_left = current_position;
 
     for (current_stream = 0; current_stream < outfile.size(); ++current_stream) {
         if (bytes_left <= max_filesize) {
             outfile[current_stream].stream.seekp(bytes_left, std::ios::beg);
+            if (outfile[current_stream].stream.fail()) {
+                std::cerr << "Failed to seek to position" << std::endl;
+            }
             break;
         } else {
             bytes_left -= max_filesize;
@@ -114,10 +118,7 @@ split::ofstream& split::ofstream::write(const char* _Str, std::streamsize _Count
     return *this;
 }
 
-int64_t split::ofstream::tellp() {
-    if (fail()) {
-        return -1;
-    }
+uint64_t split::ofstream::tellp() {
     return current_position;
 }
 
@@ -185,8 +186,13 @@ void split::ofstream::rename_output_files() {
     int digits = num_digits(static_cast<int>(outfile.size()));
 
     for (auto& file : outfile) {
+        if (!std::filesystem::exists(file.path)) {
+            continue;
+        }
+
         bool err = false;
         std::filesystem::path new_path = parent_path / (file_stem + "." + pad_digits(file.index + 1, digits) + file_ext);
+
         try {
             std::filesystem::rename(file.path, new_path);
         } catch (const std::exception& e) {
