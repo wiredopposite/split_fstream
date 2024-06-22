@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "split_fstream.h"
 
 split::ifstream::ifstream(ifstream&& other) noexcept

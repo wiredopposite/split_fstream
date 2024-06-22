@@ -1,6 +1,7 @@
 #include <cmath>
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
 
 #include "split_fstream.h"
 

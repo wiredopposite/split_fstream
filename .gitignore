@@ -1,0 +1,4 @@
+.vscode
+test/build
+test/.vscode/cmake-tools-kits.json
+build
