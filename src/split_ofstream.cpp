@@ -4,15 +4,11 @@
 
 #include "split_fstream.h"
 
-split::ofstream::ofstream(const std::string& out_filepath, const std::streamsize& max_size) {
-    *this = split::ofstream(std::filesystem::absolute(out_filepath), max_size);
-}
-
-split::ofstream::ofstream(const std::filesystem::path& out_filepath, const std::streamsize& max_size)
-    :   parent_path(out_filepath.parent_path()),
-        file_stem(out_filepath.stem().string()), 
-        file_ext(out_filepath.extension().string()),
-        max_filesize(max_size), 
+split::ofstream::ofstream(const std::filesystem::path &_Path, const std::streamsize &_Maxsize)
+    :   parent_path(_Path.parent_path()),
+        file_stem(_Path.stem().string()), 
+        file_ext(_Path.extension().string()),
+        max_filesize(_Maxsize), 
         current_stream(0), 
         current_position(0) {
 
@@ -48,24 +44,20 @@ split::ofstream::~ofstream() {
     clean_all();
 }
 
-void split::ofstream::open(const std::string& out_filepath, const std::streamsize& max_size) {
-    open(std::filesystem::absolute(out_filepath), max_size);
-}
-
-void split::ofstream::open(const std::filesystem::path& out_filepath, const std::streamsize& max_size) {
+void split::ofstream::open(const std::filesystem::path &_Path, const std::streamsize &_Maxsize) {
     if (is_open()) {
         return;
     }
-    parent_path = out_filepath.parent_path();
-    file_stem = out_filepath.stem().string(); 
-    file_ext = out_filepath.extension().string();
-    max_filesize = max_size;
+    parent_path = _Path.parent_path();
+    file_stem = _Path.stem().string(); 
+    file_ext = _Path.extension().string();
+    max_filesize = _Maxsize;
     current_stream = 0;
     current_position = 0;
     open_new_stream();
 }
 
-void split::ofstream::seekp(std::streampos _Off, std::ios_base::seekdir _Way) {
+split::ofstream& split::ofstream::seekp(std::streampos _Off, std::ios_base::seekdir _Way) {
     switch (_Way) {
         case std::ios_base::beg:
             current_position = _Off;
@@ -93,6 +85,7 @@ void split::ofstream::seekp(std::streampos _Off, std::ios_base::seekdir _Way) {
             bytes_left -= max_filesize;
         }
     }
+    return *this;
 }
 
 split::ofstream& split::ofstream::write(const char* _Str, std::streamsize _Count) {
@@ -151,7 +144,21 @@ void split::ofstream::close() {
         file.stream.close();
     }
     rename_output_files();
-    // clean_all();
+}
+
+void split::ofstream::clean_all() {
+    for (auto& file : outfile) {
+        if (file.stream.is_open()) {
+            file.stream.close();
+        }
+    }
+    outfile.clear();
+    current_stream = 0;
+    current_position = 0;
+    max_filesize = UINT64_MAX;
+    parent_path.clear();
+    file_stem.clear();
+    file_ext.clear();
 }
 
 std::filesystem::path split::ofstream::get_next_filepath() {
@@ -197,31 +204,7 @@ std::string split::ofstream::pad_digits(int number, int width) {
     return oss.str();
 }
 
-void split::ofstream::clean_all() {
-    outfile.clear();
-    current_stream = 0;
-    current_position = 0;
-    max_filesize = 0;
-    parent_path.clear();
-    file_stem.clear();
-    file_ext.clear();
-}
 
-// std::vector<std::filesystem::path> split::ofstream::fs_paths() {
-//     std::vector<std::filesystem::path> paths;
-//     for (const auto& file : outfile) {
-//         paths.push_back(file.path);
-//     }
-//     return paths;
-// }
-
-// std::vector<std::string> split::ofstream::str_paths() {
-//     std::vector<std::string> paths;
-//     for (const auto& file : outfile) {
-//         paths.push_back(file.path.string());
-//     }
-//     return paths;
-// }
 
 split::PathsWrapper split::ofstream::paths() const {
     std::vector<std::filesystem::path> paths;

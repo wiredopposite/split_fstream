@@ -20,33 +20,71 @@ split::ifstream& split::ifstream::operator=(ifstream&& other) noexcept {
     return *this;
 }
 
-split::ifstream::ifstream()
-    : total_size(0), current_stream(0), current_position(0), end_of_file(false), last_gcount(0) {}
-
-split::ifstream::ifstream(const std::vector<std::filesystem::path>& in_filepaths)
-    : total_size(0), current_stream(0), current_position(0), end_of_file(false), last_gcount(0) {
-    infile.resize(in_filepaths.size());
-
-    for (size_t i = 0; i < in_filepaths.size(); i++) {
-        infile[i].path = in_filepaths[i];
+split::ifstream::ifstream(const std::vector<std::filesystem::path>& file_paths) {
+    infile.resize(file_paths.size());
+    for (size_t i = 0; i < file_paths.size(); i++) {
+        infile[i].path = file_paths[i];
     }
-
     init_streams();
 }
 
-split::ifstream::ifstream(const std::vector<std::string>& in_filepaths)
-    : total_size(0), current_stream(0), current_position(0), end_of_file(false), last_gcount(0) {
-    infile.resize(in_filepaths.size());
-
-    for (size_t i = 0; i < in_filepaths.size(); i++) {
-        infile[i].path = std::filesystem::absolute(in_filepaths[i]);
+split::ifstream::ifstream(const std::vector<std::string>& file_paths) {
+    infile.resize(file_paths.size());
+    for (size_t i = 0; i < file_paths.size(); i++) {
+        infile[i].path = std::filesystem::absolute(file_paths[i]);
     }
+    init_streams();
+}
 
+split::ifstream::ifstream(const std::filesystem::path& file_path) {
+    infile.resize(1);
+    infile[0].path = file_path;
     init_streams();
 }
 
 split::ifstream::~ifstream() {
     close();
+}
+
+void split::ifstream::open(const std::vector<std::filesystem::path>& file_paths) {
+    if (is_open()) {
+        return;
+    }
+    close();
+    infile.resize(file_paths.size());
+    for (size_t i = 0; i < file_paths.size(); i++) {
+        infile[i].path = file_paths[i];
+    }
+    init_streams();
+}
+
+void split::ifstream::open(const std::vector<std::string>& file_paths) {
+    if (is_open()) {
+        return;
+    }
+    close();
+    infile.resize(file_paths.size());
+    for (size_t i = 0; i < file_paths.size(); i++) {
+        infile[i].path = std::filesystem::absolute(file_paths[i]);
+    }
+    init_streams();
+}
+
+void split::ifstream::open(const std::filesystem::path& file_path) {
+    if (is_open()) {
+        return;
+    }
+    close();
+    infile.resize(1);
+    infile[0].path = file_path;
+    init_streams();
+}
+
+void split::ifstream::push_back(const std::filesystem::path& file_path) {
+    StreamInfo new_stream_info = { std::ifstream(file_path, std::ios::binary), std::filesystem::file_size(file_path), std::filesystem::absolute(file_path) };
+    infile.push_back(std::move(new_stream_info));
+    total_size += infile.back().size;
+    end_of_file = false;
 }
 
 void split::ifstream::init_streams() {
@@ -59,28 +97,6 @@ void split::ifstream::init_streams() {
         file.size = std::filesystem::file_size(file.path);
         total_size += file.size;
     }
-}
-
-void split::ifstream::close() {
-    for (auto& file : infile) {
-        if (file.stream.is_open()) {
-            file.stream.close();
-        }
-    }
-    infile.clear();
-    total_size = 0;
-    current_stream = 0;
-    current_position = 0;
-    last_gcount = 0;
-    end_of_file = false;
-}
-
-bool split::ifstream::is_open() const {
-    return std::all_of(infile.begin(), infile.end(), [](const StreamInfo& si) { return si.stream.is_open(); });
-}
-
-std::streampos split::ifstream::tellg() {
-    return current_position;
 }
 
 void split::ifstream::seekg(std::streampos pos, std::ios_base::seekdir dir) {
@@ -150,12 +166,24 @@ split::ifstream& split::ifstream::read(char* buffer, std::streamsize num_bytes) 
     return *this;
 }
 
+std::streampos split::ifstream::tellg() {
+    return current_position;
+}
+
 std::streamsize split::ifstream::gcount() const {
     return last_gcount;
 }
 
 bool split::ifstream::eof() const {
     return end_of_file;
+}
+
+bool split::ifstream::operator!() {
+    return !good();
+}
+
+bool split::ifstream::is_open() const {
+    return std::all_of(infile.begin(), infile.end(), [](const StreamInfo& si) { return si.stream.is_open(); });
 }
 
 bool split::ifstream::fail() const {
@@ -171,7 +199,20 @@ bool split::ifstream::good() const {
 }
 
 void split::ifstream::clear() {
-    for (int i = 0; i < infile.size(); i++) {
-        infile[i].stream.clear();
+    for (auto& file : infile) {
+        file.stream.clear();
     }
+}
+
+void split::ifstream::close() {
+    for (auto& file : infile) {
+        if (file.stream.is_open()) {
+            file.stream.close();
+        }
+    }
+    infile.clear();
+    current_stream = 0;
+    current_position = 0;
+    last_gcount = 0;
+    end_of_file = false;
 }
