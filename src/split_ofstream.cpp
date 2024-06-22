@@ -4,17 +4,6 @@
 
 #include "split_fstream.h"
 
-split::ofstream::ofstream(const std::filesystem::path &_Path, const std::streamsize &_Maxsize)
-    :   parent_path(_Path.parent_path()),
-        file_stem(_Path.stem().string()), 
-        file_ext(_Path.extension().string()),
-        max_filesize(_Maxsize), 
-        current_stream(0), 
-        current_position(0) {
-
-    open_new_stream();
-}
-
 split::ofstream::ofstream(ofstream&& other) noexcept
     : outfile(std::move(other.outfile)),
       parent_path(std::move(other.parent_path)),
@@ -39,6 +28,14 @@ split::ofstream& split::ofstream::operator=(ofstream&& other) noexcept {
     return *this;
 }
 
+split::ofstream::ofstream(const std::filesystem::path &_Path, const std::streamsize &_Maxsize)
+    :   parent_path(_Path.parent_path()),
+        file_stem(_Path.stem().string()), 
+        file_ext(_Path.extension().string()),
+        max_filesize(_Maxsize) {
+    open_new_stream();
+}
+
 split::ofstream::~ofstream() {
     close();
     clean_all();
@@ -48,12 +45,11 @@ void split::ofstream::open(const std::filesystem::path &_Path, const std::stream
     if (is_open()) {
         return;
     }
+    clean_all();
     parent_path = _Path.parent_path();
     file_stem = _Path.stem().string(); 
     file_ext = _Path.extension().string();
     max_filesize = _Maxsize;
-    current_stream = 0;
-    current_position = 0;
     open_new_stream();
 }
 
@@ -203,8 +199,6 @@ std::string split::ofstream::pad_digits(int number, int width) {
     oss << std::setw(width) << std::setfill('0') << number;
     return oss.str();
 }
-
-
 
 split::PathsWrapper split::ofstream::paths() const {
     std::vector<std::filesystem::path> paths;

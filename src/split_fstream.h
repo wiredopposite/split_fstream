@@ -56,9 +56,9 @@ private:
     std::string file_ext;
     std::filesystem::path parent_path;
 
-    unsigned int current_stream;
-    std::streampos current_position;
-    std::streampos max_filesize;
+    unsigned int current_stream{0};
+    std::streampos current_position{0};
+    std::streampos max_filesize{UINT64_MAX};
     
     std::filesystem::path get_next_filepath();
     void open_new_stream();
