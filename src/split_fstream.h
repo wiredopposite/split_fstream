@@ -50,7 +50,7 @@ private:
         unsigned int index;
     };
 
-    std::vector<StreamInfo> outfile;
+    std::vector<StreamInfo> outfiles;
 
     std::string file_stem;
     std::string file_ext;
@@ -109,7 +109,7 @@ private:
         std::filesystem::path path;
     };
 
-    std::vector<StreamInfo> infile;
+    std::vector<StreamInfo> infiles;
     uint64_t total_size{0};
     unsigned int current_stream{0};
     uint64_t current_position{0};
